@@ -1,28 +1,44 @@
 from backend.langgraph_pipeline import app
 
 
-def run_query(question: str):
-    # Initial state must match QAState
-    initial_state = {
-        "question": question,
-        "rag_result": None,
-        "web_result": None,
-        "final_answer": None,
-        "eval_score": None,
-    }
+def chat():
+    thread_id = "chat_1"  # SAME thread = persistent memory
 
-    result = app.invoke(initial_state)
-    return result
+    print("SmartTutor Chat (type 'exit' or 'quit' to stop)\n")
+
+    while True:
+        question = input("You: ").strip()
+
+        if question.lower() in {"exit", "quit"}:
+            print("👋 Exiting chat.")
+            break
+
+        initial_state = {
+            "question": question,
+            "rag_result": None,
+            "web_result": None,
+            "final_answer": None,
+            "eval_score": None,
+        }
+
+        config = {
+            "configurable": {
+                "thread_id": thread_id
+            }
+        }
+
+        # 🔹 Run the graph
+        result = app.invoke(initial_state, config)
+
+        print("\nAssistant:", result["final_answer"])
+        print(f"(eval_score={result['eval_score']})")
+
+        # 🔹 DEBUG: inspect persisted state
+        state = app.get_state({"configurable": {"thread_id": thread_id}})
+        print("\n[DEBUG] Current State Snapshot:")
+        print(state.values)
+        print("-" * 50)
 
 
 if __name__ == "__main__":
-    q = "what is diabetes?"
-    output = run_query(q)
-
-    print("\n===== FINAL ANSWER =====")
-    print(output["final_answer"])
-
-    print("\n===== DEBUG INFO =====")
-    print("Eval score:", output["eval_score"])
-    print("RAG used:", output["rag_result"] is not None)
-    print("Web used:", output["web_result"] is not None)
+    chat()

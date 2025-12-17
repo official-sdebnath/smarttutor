@@ -1,0 +1,11 @@
+{
+  "dependencies": [
+    "langchain",
+    "langgraph",
+    "langchain-groq",
+    "sentence-transformers"
+  ],
+  "graphs": {
+    "smarttutor": "backend.langgraph_pipeline:app"
+  }
+}
