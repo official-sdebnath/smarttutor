@@ -24,7 +24,7 @@ def build_context(chunks: List[Dict[str, Any]]) -> str:
     """
     Purpose: Build a context string from a list of chunks.
 
-    Input: 1. chunks (List[Dict[str, Any]]): A list of chunks with their metadata and text.
+    Input: chunks (List[Dict[str, Any]]): A list of chunks with their metadata and text.
 
     Output: str: A string containing the context.
     """
@@ -57,23 +57,29 @@ prompt = ChatPromptTemplate.from_messages(
     [
         (
             "system",
-            "You are SmartTutor, a helpful AI tutor. "
-            "Answer the user's question using ONLY the provided context. "
-            "If the answer is not in the context, say you don't know.",
+            "You are SmartTutor, a helpful AI tutor.\n"
+            "Use the conversation context and retrieved documents to answer.\n"
+            "If the answer is not supported by the context, say you don't know.",
         ),
         (
             "human",
-            "Context:\n{context}\n\nQuestion: {question}\nAnswer:",
+            "Conversation so far:\n{conversation}\n\n"
+            "Retrieved context:\n{context}\n\n"
+            "Current question:\n{question}\n\nAnswer:",
         ),
     ]
 )
+
 
 parser = StrOutputParser()
 
 chain = (
     {
-        "context": retriever | context_builder,
-        "question": RunnablePassthrough(),
+        "context": RunnableLambda(lambda x: x["question"])
+                   | retriever
+                   | context_builder,
+        "question": RunnableLambda(lambda x: x["question"]),
+        "conversation": RunnableLambda(lambda x: x["conversation"]),
     }
     | prompt
     | llm
@@ -108,7 +114,7 @@ def extract_sources_from_chunks(chunks: List[Dict[str, Any]]) -> List[Dict[str, 
     return items
 
 
-def answer_question(question: str, k: int = 5) -> Dict[str, Any]:
+def answer_question(question: str, conversation_context: str = "", k: int = 5) -> Dict[str, Any]:
     """
     Purpose: Retrieve top-k chunks and generate an answer with OpenAI.
     Returns both answer and the sources used.
@@ -125,7 +131,12 @@ def answer_question(question: str, k: int = 5) -> Dict[str, Any]:
     if not chunks:
         answer_text = "I couldn't find anything relevant in the knowledge base."
     else:
-        answer_text = chain.invoke(question)
+        answer_text = chain.invoke(
+            {
+                "question": question,
+                "conversation": conversation_context or "None",
+            }
+        )
 
     return {
         "type": "rag",

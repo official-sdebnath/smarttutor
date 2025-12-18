@@ -11,4 +11,3 @@ client = get_mongodb_client(MONGODB_URI)
 db = client["smarttutor"]
 
 chunks_collection = db["chunks"]
-chat_collection = db["chat_history"]

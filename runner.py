@@ -1,44 +1,67 @@
-from backend.langgraph_pipeline import app
+from backend.langgraph_pipeline import build_graph
+from langgraph.store.postgres import PostgresStore
+from langgraph.checkpoint.postgres import PostgresSaver
+from langchain_core.messages import HumanMessage
+from langgraph.errors import GraphInterrupt
 
+from dotenv import load_dotenv
+import os
+from urllib.parse import quote_plus 
+
+load_dotenv()
+
+
+user = os.getenv("SUPABASE_DB_USER")
+password = quote_plus(os.getenv("SUPABASE_DB_PASSWORD"))  # 🔐 encoded in memory
+host = os.getenv("SUPABASE_DB_HOST")
+port = os.getenv("SUPABASE_DB_PORT", "5432")
+db = os.getenv("SUPABASE_DB_NAME", "postgres")
+
+SUPABASE_DB_URL = (
+    f"postgresql://{user}:{password}@{host}:{port}/{db}"
+)
 
 def chat():
-    thread_id = "chat_1"  # SAME thread = persistent memory
+    thread_id = "chat_1"
 
-    print("SmartTutor Chat (type 'exit' or 'quit' to stop)\n")
+    with (
+        PostgresStore.from_conn_string(SUPABASE_DB_URL) as store,
+        PostgresSaver.from_conn_string(SUPABASE_DB_URL) as checkpointer,
+    ):
+        app = build_graph(store, checkpointer)
 
-    while True:
-        question = input("You: ").strip()
+        print("SmartTutor Chat (type 'exit' or 'quit' to stop)\n")
 
-        if question.lower() in {"exit", "quit"}:
-            print("👋 Exiting chat.")
-            break
+        while True:
+            user_input = input("You: ").strip()
+            if user_input.lower() in {"exit", "quit"}:
+                break
 
-        initial_state = {
-            "question": question,
-            "rag_result": None,
-            "web_result": None,
-            "final_answer": None,
-            "eval_score": None,
-        }
-
-        config = {
-            "configurable": {
-                "thread_id": thread_id
+            config = {
+                "configurable": {
+                    "thread_id": thread_id,
+                    "user_id": "user_1",
+                }
             }
-        }
 
-        # 🔹 Run the graph
-        result = app.invoke(initial_state, config)
+            try:
+                result = app.invoke(
+                    {"messages": [HumanMessage(content=user_input)]},
+                    config,
+                )
 
-        print("\nAssistant:", result["final_answer"])
-        print(f"(eval_score={result['eval_score']})")
+            except GraphInterrupt:
+                state = app.get_state(config)
+                payload = state.tasks[0].interrupts[0].value
+                print(payload["current_answer"])
 
-        # 🔹 DEBUG: inspect persisted state
-        state = app.get_state({"configurable": {"thread_id": thread_id}})
-        print("\n[DEBUG] Current State Snapshot:")
-        print(state.values)
-        print("-" * 50)
+                feedback = input("Rewrite or approve: ")
+                result = app.invoke(
+                    {"human_feedback": feedback},
+                    config,
+                )
 
+            print("\nAssistant:", result["final_answer"])
 
 if __name__ == "__main__":
     chat()

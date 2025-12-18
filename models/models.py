@@ -2,12 +2,11 @@ from pydantic import BaseModel, Field
 from typing import List, Literal
 from datetime import datetime
 
-class ChatMessage(BaseModel):
-    user_id: str
-    session_id: str
-    role: Literal["user", "assistant"]
-    content: str
-    timestamp: datetime
+class ConversationThread(BaseModel):
+    thread_id: str
+    user_id: str | None = None
+    created_at: datetime
+    updated_at: datetime
 
 class QARequest(BaseModel):
     question: str

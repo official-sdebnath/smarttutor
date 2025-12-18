@@ -1,14 +1,19 @@
-from langgraph.graph import StateGraph, START, END
+from langgraph.graph import StateGraph, MessagesState, START, END
+from langgraph.checkpoint.memory import InMemorySaver
+from langgraph.types import interrupt
+from langgraph.store.base import BaseStore
+
 from langchain_groq import ChatGroq
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser, PydanticOutputParser
+from langchain_core.messages import HumanMessage, AIMessage
+from langchain_core.runnables import RunnableConfig
 
 from backend.services.qa import answer_question
 from backend.services.web_search import search_and_synthesize
 
 from typing import Dict, Any, TypedDict, Optional
 from models.models import EvalResult
-
 
 # -------------------------
 # Config
@@ -27,32 +32,68 @@ eval_llm = ChatGroq(
     model_kwargs={"response_format": {"type": "json_object"}},
 )
 
-
 # -------------------------
 # State
 # -------------------------
-class QAState(TypedDict):
-    question: str  # User query
+class QAState(MessagesState):
+    rag_result: Optional[Dict[str, Any]] # Contains response strcuture from rag pipeline
+    web_result: Optional[Dict[str, Any]] # Contains response strcuture from web pipeline
+    final_answer: Optional[str] # Contains final answer
+    eval_score: Optional[float] # Ranging from 0 to 1
+    human_feedback: Optional[str] # Contains human feedback
 
-    rag_result: Optional[
-        Dict[str, Any]
-    ]  # Contains response strcuture from rag pipeline
-    web_result: Optional[
-        Dict[str, Any]
-    ]  # Contains response strcuture from web pipeline
+#--------------------------
+def last_user_message(state: QAState) -> str:
+    for m in reversed(state["messages"]):
+        if isinstance(m, HumanMessage):
+            return m.content
+    return ""
 
-    final_answer: Optional[str]  # Contains final answer
-    eval_score: Optional[float]  # Ranging from 0 to 1
+def conversation_context(state: QAState, max_turns: int = 6) -> str:
+    """
+    Build a compact conversational context for the LLM.
+    """
+    history = []
+    for m in state["messages"][-max_turns:]:
+        role = "User" if isinstance(m, HumanMessage) else "Assistant"
+        history.append(f"{role}: {m.content}")
+    return "\n".join(history)
+
+def load_user_memory(store, user_id: str) -> str:
+    namespace = ("memories", user_id)
+    memories = store.search(namespace, query="")
+    return "\n".join(m.value["data"] for m in memories)
 
 
 # -------------------------
 # Nodes
 # -------------------------
-def rag_node(state: QAState) -> QAState:
-    """Purpose: Initialize node for using RAG agent"""
-    result = answer_question(state["question"], k=5)
-    return {**state, "rag_result": result}
+def rag_node(
+    state: QAState,
+    config: RunnableConfig,
+    *,
+    store: BaseStore,
+) -> QAState:
+    user_id = config["configurable"]["user_id"]
 
+    memory = load_user_memory(store, user_id)
+    context = conversation_context(state)
+
+    augmented_context = f"""
+User memory:
+{memory}
+
+Conversation:
+{context}
+"""
+
+    result = answer_question(
+        question=last_user_message(state),
+        conversation_context=augmented_context,
+        k=5,
+    )
+
+    return {**state, "rag_result": result}
 
 def should_use_web(state: QAState) -> str:
     """Purpose: Determine whether to use the web pipeline or not."""
@@ -66,10 +107,9 @@ def should_use_web(state: QAState) -> str:
 
 
 def web_node(state: QAState) -> QAState:
-    """Purpose: Initialize node for using web agent"""
-    result = search_and_synthesize(state["question"], k=5)
+    question = last_user_message(state)
+    result = search_and_synthesize(question, k=5)
     return {**state, "web_result": result}
-
 
 # -------------------------
 # Evaluator
@@ -117,7 +157,7 @@ def evaluator_node(state: QAState) -> QAState:
     try:
         result: EvalResult = eval_chain.invoke(
             {
-                "question": state["question"],
+                "question": last_user_message(state),
                 "answer": candidate["answer"],
                 "evidence": evidence,
                 "format_instructions": parser.get_format_instructions(),
@@ -132,7 +172,33 @@ def evaluator_node(state: QAState) -> QAState:
         **state,
         "final_answer": candidate["answer"],
         "eval_score": score,
+        "messages": state["messages"] + [
+            AIMessage(content=candidate["answer"])
+        ],
     }
+
+
+# -------------------------
+# Human Review Node
+# -------------------------
+
+def human_review_node(state: QAState) -> QAState:
+    """
+    Pause execution and ask human whether / how to rewrite.
+    """
+    feedback = interrupt(
+        {
+            "question": "Rewrite needed. Provide instructions or type 'approve'.",
+            "current_answer": state["final_answer"],
+        }
+    )
+
+    # feedback is what the human sends when resuming
+    return {
+        **state,
+        "human_feedback": feedback,
+    }
+
 
 
 # -------------------------
@@ -142,52 +208,72 @@ rewrite_prompt = ChatPromptTemplate.from_messages(
     [
         (
             "system",
-            "Rewrite the answer to be clearer, more structured, and concise. Do not add new facts.",
+            "Rewrite the answer based on human instructions. Do not add new facts.",
         ),
-        ("human", "Original answer:\n{answer}"),
+        (
+            "human",
+            "Original answer:\n{answer}\n\nHuman instructions:\n{instructions}",
+        ),
     ]
 )
 
 rewrite_chain = rewrite_prompt | llm | StrOutputParser()
 
-
 def rewrite_node(state: QAState) -> QAState:
-    """Purpose: Initialize node for using rewrite agent"""
-    rewritten = rewrite_chain.invoke({"answer": state["final_answer"]})
-    return {**state, "final_answer": rewritten}
+    feedback = state.get("human_feedback")
+
+    # Human approved → no rewrite
+    if feedback is None or feedback.lower().strip() == "approve":
+        return state
+
+    rewritten = rewrite_chain.invoke(
+        {
+            "answer": state["final_answer"],
+            "instructions": feedback,
+        }
+    )
+
+    return {
+        **state,
+        "final_answer": rewritten,
+        "messages": state["messages"] + [
+            AIMessage(content=rewritten)
+        ],
+    }
 
 
 # -------------------------
 # Graph
 # -------------------------
-graph = StateGraph(QAState)
+def build_graph(store, checkpointer):
+    graph = StateGraph(QAState)
 
-graph.add_node("rag", rag_node)
-graph.add_node("web", web_node)
-graph.add_node("evaluate", evaluator_node)
-graph.add_node("rewrite", rewrite_node)
+    graph.add_node("rag", rag_node)
+    graph.add_node("web", web_node)
+    graph.add_node("evaluate", evaluator_node)
+    graph.add_node("human_review", human_review_node)
+    graph.add_node("rewrite", rewrite_node)
 
-graph.add_edge(START, "rag")
+    graph.add_edge(START, "rag")
 
-graph.add_conditional_edges(
-    "rag",
-    should_use_web,
-    {
-        "web": "web",
-        "evaluate": "evaluate",
-    },
-)
+    graph.add_conditional_edges(
+        "rag",
+        should_use_web,
+        {"web": "web", "evaluate": "evaluate"},
+    )
 
-graph.add_edge("web", "evaluate")
+    graph.add_edge("web", "evaluate")
 
-graph.add_conditional_edges(
-    "evaluate",
-    lambda s: "rewrite" if s["eval_score"] < EVAL_THRESHOLD else END,
-    {
-        "rewrite": "rewrite",
-        END: END,
-    },
-)
-graph.add_edge("rewrite", END)
+    graph.add_conditional_edges(
+        "evaluate",
+        lambda s: "human_review" if s["eval_score"] < EVAL_THRESHOLD else END,
+        {"human_review": "human_review", END: END},
+    )
 
-app = graph.compile()
+    graph.add_edge("human_review", "rewrite")
+    graph.add_edge("rewrite", END)
+
+    return graph.compile(
+        store=store,
+        checkpointer=checkpointer,
+    )
