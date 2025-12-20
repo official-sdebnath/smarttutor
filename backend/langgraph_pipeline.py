@@ -14,6 +14,8 @@ from backend.services.web_search import search_and_synthesize
 from typing import Dict, Any, Optional
 from models.models import EvalResult
 
+from backend.dspy_modules.signatures import EvaluatorModule, RewriteModule
+
 # -------------------------
 # Config
 # -------------------------
@@ -30,6 +32,10 @@ eval_llm = ChatGroq(
     temperature=0,
     model_kwargs={"response_format": {"type": "json_object"}},
 )
+
+# DSPy modules initialized
+evaluator = EvaluatorModule()
+rewriter = RewriteModule()
 
 
 # -------------------------
@@ -148,7 +154,6 @@ eval_chain = eval_prompt | eval_llm | parser
 
 
 def evaluator_node(state: QAState) -> QAState:
-    """Purpose: Initialize node for using evaluator agent"""
     candidate = (
         state["rag_result"]
         if state.get("rag_result") and state["rag_result"]["top_score"] >= RAG_THRESHOLD
@@ -164,18 +169,15 @@ def evaluator_node(state: QAState) -> QAState:
         )
 
     try:
-        result: EvalResult = eval_chain.invoke(
-            {
-                "question": last_user_message(state),
-                "answer": candidate["answer"],
-                "evidence": evidence,
-                "format_instructions": parser.get_format_instructions(),
-            }
+        result = evaluator(
+            question=last_user_message(state),
+            answer=candidate["answer"],
+            evidence=evidence,
         )
-        score = result.score
+        score = float(result.score)
     except Exception as e:
-        print("Evaluator failed:", e)
-        score = 0.0  # fail-safe
+        print("DSPy evaluator failed:", e)
+        score = 0.0
 
     return {
         **state,
@@ -230,16 +232,13 @@ rewrite_chain = rewrite_prompt | llm | StrOutputParser()
 def rewrite_node(state: QAState) -> QAState:
     feedback = state.get("human_feedback")
 
-    # Human approved → no rewrite
     if feedback is None or feedback.lower().strip() == "approve":
         return state
 
-    rewritten = rewrite_chain.invoke(
-        {
-            "answer": state["final_answer"],
-            "instructions": feedback,
-        }
-    )
+    rewritten = rewriter(
+        answer=state["final_answer"],
+        rewrite_instructions=feedback,
+    ).rewritten_answer
 
     return {
         **state,

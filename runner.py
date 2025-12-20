@@ -3,10 +3,10 @@ from langgraph.store.postgres import PostgresStore
 from langgraph.checkpoint.postgres import PostgresSaver
 from langchain_core.messages import HumanMessage
 from langgraph.errors import GraphInterrupt
-
+from utils.utils import configure_dspy
 from dotenv import load_dotenv
 import os
-from urllib.parse import quote_plus 
+from urllib.parse import quote_plus
 
 load_dotenv()
 
@@ -17,11 +17,13 @@ host = os.getenv("SUPABASE_DB_HOST")
 port = os.getenv("SUPABASE_DB_PORT", "5432")
 db = os.getenv("SUPABASE_DB_NAME", "postgres")
 
-SUPABASE_DB_URL = (
-    f"postgresql://{user}:{password}@{host}:{port}/{db}"
-)
+SUPABASE_DB_URL = f"postgresql://{user}:{password}@{host}:{port}/{db}"
+
 
 def chat():
+    """
+    Purpose: Run the chatbot.
+    """
     thread_id = "chat_1"
 
     with (
@@ -63,5 +65,7 @@ def chat():
 
             print("\nAssistant:", result["final_answer"])
 
+
 if __name__ == "__main__":
+    configure_dspy()
     chat()

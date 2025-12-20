@@ -17,3 +17,4 @@ tavily-python
 langgraph-checkpoint-sqlite
 langgraph-checkpoint-postgres
 psycopg[binary]
+dspy
