@@ -1,12 +1,14 @@
 from pydantic import BaseModel, Field
-from typing import List, Literal
+from typing import List
 from datetime import datetime
+
 
 class ConversationThread(BaseModel):
     thread_id: str
     user_id: str | None = None
     created_at: datetime
     updated_at: datetime
+
 
 class QARequest(BaseModel):
     question: str

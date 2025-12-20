@@ -12,7 +12,7 @@ load_dotenv()
 
 
 user = os.getenv("SUPABASE_DB_USER")
-password = quote_plus(os.getenv("SUPABASE_DB_PASSWORD"))  # 🔐 encoded in memory
+password = quote_plus(os.getenv("SUPABASE_DB_PASSWORD"))
 host = os.getenv("SUPABASE_DB_HOST")
 port = os.getenv("SUPABASE_DB_PORT", "5432")
 db = os.getenv("SUPABASE_DB_NAME", "postgres")

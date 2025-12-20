@@ -1,5 +1,4 @@
 from langgraph.graph import StateGraph, MessagesState, START, END
-from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.types import interrupt
 from langgraph.store.base import BaseStore
 
@@ -12,7 +11,7 @@ from langchain_core.runnables import RunnableConfig
 from backend.services.qa import answer_question
 from backend.services.web_search import search_and_synthesize
 
-from typing import Dict, Any, TypedDict, Optional
+from typing import Dict, Any, Optional
 from models.models import EvalResult
 
 # -------------------------
@@ -32,22 +31,29 @@ eval_llm = ChatGroq(
     model_kwargs={"response_format": {"type": "json_object"}},
 )
 
+
 # -------------------------
 # State
 # -------------------------
 class QAState(MessagesState):
-    rag_result: Optional[Dict[str, Any]] # Contains response strcuture from rag pipeline
-    web_result: Optional[Dict[str, Any]] # Contains response strcuture from web pipeline
-    final_answer: Optional[str] # Contains final answer
-    eval_score: Optional[float] # Ranging from 0 to 1
-    human_feedback: Optional[str] # Contains human feedback
+    rag_result: Optional[
+        Dict[str, Any]
+    ]  # Contains response strcuture from rag pipeline
+    web_result: Optional[
+        Dict[str, Any]
+    ]  # Contains response strcuture from web pipeline
+    final_answer: Optional[str]  # Contains final answer
+    eval_score: Optional[float]  # Ranging from 0 to 1
+    human_feedback: Optional[str]  # Contains human feedback
 
-#--------------------------
+
+# --------------------------
 def last_user_message(state: QAState) -> str:
     for m in reversed(state["messages"]):
         if isinstance(m, HumanMessage):
             return m.content
     return ""
+
 
 def conversation_context(state: QAState, max_turns: int = 6) -> str:
     """
@@ -58,6 +64,7 @@ def conversation_context(state: QAState, max_turns: int = 6) -> str:
         role = "User" if isinstance(m, HumanMessage) else "Assistant"
         history.append(f"{role}: {m.content}")
     return "\n".join(history)
+
 
 def load_user_memory(store, user_id: str) -> str:
     namespace = ("memories", user_id)
@@ -80,12 +87,12 @@ def rag_node(
     context = conversation_context(state)
 
     augmented_context = f"""
-User memory:
-{memory}
+    User memory:
+    {memory}
 
-Conversation:
-{context}
-"""
+    Conversation:
+    {context}
+    """
 
     result = answer_question(
         question=last_user_message(state),
@@ -94,6 +101,7 @@ Conversation:
     )
 
     return {**state, "rag_result": result}
+
 
 def should_use_web(state: QAState) -> str:
     """Purpose: Determine whether to use the web pipeline or not."""
@@ -110,6 +118,7 @@ def web_node(state: QAState) -> QAState:
     question = last_user_message(state)
     result = search_and_synthesize(question, k=5)
     return {**state, "web_result": result}
+
 
 # -------------------------
 # Evaluator
@@ -172,15 +181,14 @@ def evaluator_node(state: QAState) -> QAState:
         **state,
         "final_answer": candidate["answer"],
         "eval_score": score,
-        "messages": state["messages"] + [
-            AIMessage(content=candidate["answer"])
-        ],
+        "messages": state["messages"] + [AIMessage(content=candidate["answer"])],
     }
 
 
 # -------------------------
 # Human Review Node
 # -------------------------
+
 
 def human_review_node(state: QAState) -> QAState:
     """
@@ -198,7 +206,6 @@ def human_review_node(state: QAState) -> QAState:
         **state,
         "human_feedback": feedback,
     }
-
 
 
 # -------------------------
@@ -219,6 +226,7 @@ rewrite_prompt = ChatPromptTemplate.from_messages(
 
 rewrite_chain = rewrite_prompt | llm | StrOutputParser()
 
+
 def rewrite_node(state: QAState) -> QAState:
     feedback = state.get("human_feedback")
 
@@ -236,9 +244,7 @@ def rewrite_node(state: QAState) -> QAState:
     return {
         **state,
         "final_answer": rewritten,
-        "messages": state["messages"] + [
-            AIMessage(content=rewritten)
-        ],
+        "messages": state["messages"] + [AIMessage(content=rewritten)],
     }
 
 

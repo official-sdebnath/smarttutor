@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 from langchain_groq import ChatGroq
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
-from langchain_core.runnables import RunnableLambda, RunnablePassthrough
+from langchain_core.runnables import RunnableLambda
 from backend.services.retrieval import search_chunks
 
 
@@ -76,8 +76,8 @@ parser = StrOutputParser()
 chain = (
     {
         "context": RunnableLambda(lambda x: x["question"])
-                   | retriever
-                   | context_builder,
+        | retriever
+        | context_builder,
         "question": RunnableLambda(lambda x: x["question"]),
         "conversation": RunnableLambda(lambda x: x["conversation"]),
     }
@@ -114,7 +114,9 @@ def extract_sources_from_chunks(chunks: List[Dict[str, Any]]) -> List[Dict[str, 
     return items
 
 
-def answer_question(question: str, conversation_context: str = "", k: int = 5) -> Dict[str, Any]:
+def answer_question(
+    question: str, conversation_context: str = "", k: int = 5
+) -> Dict[str, Any]:
     """
     Purpose: Retrieve top-k chunks and generate an answer with OpenAI.
     Returns both answer and the sources used.
