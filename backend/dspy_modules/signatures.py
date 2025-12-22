@@ -2,6 +2,11 @@ import dspy
 from dspy import Signature, InputField, OutputField
 
 
+# -------------------------
+# Signatures
+# -------------------------
+
+
 class AnswerEvaluation(Signature):
     question: str = InputField()
     answer: str = InputField()
@@ -16,6 +21,11 @@ class RewriteAnswer(Signature):
     rewrite_instructions: str = InputField()
 
     rewritten_answer: str = OutputField()
+
+
+# -------------------------
+# Modules
+# -------------------------
 
 
 class EvaluatorModule(dspy.Module):
