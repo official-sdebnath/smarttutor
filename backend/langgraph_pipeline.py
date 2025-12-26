@@ -15,6 +15,7 @@ from typing import Dict, Any, Optional
 from models.models import EvalResult
 
 from backend.dspy_modules.signatures import EvaluatorModule, RewriteModule
+import time
 
 # -------------------------
 # Config
@@ -51,9 +52,12 @@ class QAState(MessagesState):
     final_answer: Optional[str]  # Contains final answer
     eval_score: Optional[float]  # Ranging from 0 to 1
     human_feedback: Optional[str]  # Contains human feedback
+    memory_written: bool = False  # Whether memory has been written
 
 
-# --------------------------
+# -------------------------- Helpers --------------------------
+
+
 def last_user_message(state: QAState) -> str:
     for m in reversed(state["messages"]):
         if isinstance(m, HumanMessage):
@@ -76,6 +80,14 @@ def load_user_memory(store, user_id: str) -> str:
     namespace = ("memories", user_id)
     memories = store.search(namespace, query="")
     return "\n".join(m.value["data"] for m in memories)
+
+
+def append_memory(store, user_id: str, text: str):
+    store.put(
+        ("memories", user_id),
+        key=str(time.time()),
+        value={"data": text},
+    )
 
 
 # -------------------------
@@ -153,7 +165,12 @@ parser = PydanticOutputParser(pydantic_object=EvalResult)
 eval_chain = eval_prompt | eval_llm | parser
 
 
-def evaluator_node(state: QAState) -> QAState:
+def evaluator_node(
+    state: QAState,
+    *,
+    store: BaseStore,
+    config: RunnableConfig,
+) -> QAState:
     candidate = (
         state["rag_result"]
         if state.get("rag_result") and state["rag_result"]["top_score"] >= RAG_THRESHOLD
@@ -175,6 +192,12 @@ def evaluator_node(state: QAState) -> QAState:
             evidence=evidence,
         )
         score = float(result.score)
+        user_id = config["configurable"]["user_id"]
+
+        if score >= EVAL_THRESHOLD:
+            append_memory(store, user_id, candidate["answer"])
+            state["memory_written"] = True
+
     except Exception as e:
         print("DSPy evaluator failed:", e)
         score = 0.0
@@ -229,16 +252,30 @@ rewrite_prompt = ChatPromptTemplate.from_messages(
 rewrite_chain = rewrite_prompt | llm | StrOutputParser()
 
 
-def rewrite_node(state: QAState) -> QAState:
+def rewrite_node(
+    state: QAState,
+    *,
+    store: BaseStore,
+    config: RunnableConfig,
+) -> QAState:
+    user_id = config["configurable"]["user_id"]
     feedback = state.get("human_feedback")
 
+    # Case: human approves without rewrite
     if feedback is None or feedback.lower().strip() == "approve":
+        if not state.get("memory_written"):
+            append_memory(store, user_id, state["final_answer"])
+            state["memory_written"] = True
         return state
 
+    # Case: rewritten answer
     rewritten = rewriter(
         answer=state["final_answer"],
         rewrite_instructions=feedback,
     ).rewritten_answer
+
+    append_memory(store, user_id, rewritten)
+    state["memory_written"] = True
 
     return {
         **state,

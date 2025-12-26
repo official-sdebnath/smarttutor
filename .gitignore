@@ -14,3 +14,4 @@ wheels/
 .langgraph_api/
 
 __init__.py
+check_sd.py

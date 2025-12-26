@@ -22,9 +22,10 @@ SUPABASE_DB_URL = f"postgresql://{user}:{password}@{host}:{port}/{db}"
 
 def chat():
     """
-    Purpose: Run the chatbot.
+    Purpose: Run the chatbot with proper conversational state.
     """
     thread_id = "chat_1"
+    user_id = "user_1"
 
     with (
         PostgresStore.from_conn_string(SUPABASE_DB_URL) as store,
@@ -42,28 +43,38 @@ def chat():
             config = {
                 "configurable": {
                     "thread_id": thread_id,
-                    "user_id": "user_1",
+                    "user_id": user_id,
                 }
             }
 
+            state = app.get_state(config)
+
+            previous_messages = state.values.get("messages", [])
+            messages = previous_messages + [HumanMessage(content=user_input)]
+
             try:
                 result = app.invoke(
-                    {"messages": [HumanMessage(content=user_input)]},
+                    {"messages": messages},
                     config,
                 )
 
             except GraphInterrupt:
+                # Human-in-the-loop rewrite flow
                 state = app.get_state(config)
                 payload = state.tasks[0].interrupts[0].value
+
+                print("\nAssistant (needs review):")
                 print(payload["current_answer"])
 
-                feedback = input("Rewrite or approve: ")
+                feedback = input("\nRewrite or approve: ")
+
                 result = app.invoke(
                     {"human_feedback": feedback},
                     config,
                 )
 
             print("\nAssistant:", result["final_answer"])
+            print("-" * 60)
 
 
 if __name__ == "__main__":
