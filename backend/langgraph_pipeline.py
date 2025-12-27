@@ -8,7 +8,9 @@ from langchain_core.output_parsers import StrOutputParser, PydanticOutputParser
 from langchain_core.messages import HumanMessage, AIMessage
 from langchain_core.runnables import RunnableConfig
 
-from backend.services.qa import answer_question
+from backend.clients.qa_client import ask_question
+
+# from backend.services.qa import answer_question
 from backend.services.web_search import search_and_synthesize
 
 from typing import Dict, Any, Optional
@@ -112,13 +114,20 @@ def rag_node(
     {context}
     """
 
-    result = answer_question(
+    qa_result = ask_question(
         question=last_user_message(state),
         conversation_context=augmented_context,
         k=5,
     )
 
-    return {**state, "rag_result": result}
+    return {
+        **state,
+        "rag_result": {
+            "answer": qa_result.answer,
+            "items": qa_result.items,
+            "top_score": qa_result.top_score,
+        },
+    }
 
 
 def should_use_web(state: QAState) -> str:
