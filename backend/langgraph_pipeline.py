@@ -11,9 +11,6 @@ from langchain_core.runnables import RunnableConfig
 from backend.clients.qa_client import ask_question
 from backend.clients.web_search_client import search_web
 
-# from backend.services.qa import answer_question
-# from backend.services.web_search import search_and_synthesize
-
 from typing import Dict, Any, Optional
 from models.models import EvalResult
 
