@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Virtual envs
+.venv/
+.env
+
+# Git
+.git/
+.gitignore
+
+# Docs & data
+docs/
+*.pdf
+
+# OS
+.DS_Store
