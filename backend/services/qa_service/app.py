@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 
 from shared.schemas.qa import QARequest, QAResponse
-from backend.services.qa_service.qa import answer_question
+from .service import answer_question
 
 app = FastAPI(title="SmartTutor QA Service")
 
