@@ -1,0 +1,57 @@
+version: "3.9"
+
+services:
+  retrieval_service:
+    build:
+      context: ./backend/services/retrieval_service
+    container_name: smarttutor_retrieval
+    ports:
+      - "8001:8001"
+    env_file:
+      - .env
+    restart: unless-stopped
+
+  qa_service:
+    build:
+      context: ./backend/services/qa_service
+    container_name: smarttutor_qa
+    ports:
+      - "8002:8002"
+    env_file:
+      - .env
+    depends_on:
+      - retrieval_service
+    restart: unless-stopped
+
+  ingestion_service:
+    build:
+      context: ./backend/services/ingestion_service
+    container_name: smarttutor_ingestion
+    ports:
+      - "8003:8003"
+    env_file:
+      - .env
+    restart: unless-stopped
+
+  web_search_service:
+    build:
+      context: ./backend/services/web_search_service
+    container_name: smarttutor_web
+    ports:
+      - "8004:8004"
+    env_file:
+      - .env
+    restart: unless-stopped
+
+  orchestrator_service:
+    build:
+      context: ./backend/services/orchestrator_service
+    container_name: smarttutor_orchestrator
+    ports:
+      - "8006:8006"
+    env_file:
+      - .env
+    depends_on:
+      - qa_service
+      - web_search_service
+    restart: unless-stopped
