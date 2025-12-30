@@ -1,5 +1,5 @@
 from langchain_groq import ChatGroq
-from .config import GROQ_API_KEY
+from web_search_service.config import GROQ_API_KEY
 
 
 groq = ChatGroq(

@@ -1,10 +1,10 @@
-from backend.langgraph_pipeline import build_graph
+from orchestrator_service.langgraph_pipeline import build_graph
 from langgraph.store.postgres import PostgresStore
 from langgraph.checkpoint.postgres import PostgresSaver
 from langchain_core.messages import HumanMessage
 from langgraph.errors import GraphInterrupt
 
-from .config import SUPABASE_DB_URL
+from orchestrator_service.config import SUPABASE_DB_URL
 
 
 class Orchestrator:

@@ -1,8 +1,8 @@
 from typing import List, Dict, Any
 from langchain_huggingface import HuggingFaceEmbeddings
 
-from .db import get_chunk_collection
-from .config import EMBEDDING_MODEL
+from retrieval_service.db import get_chunk_collection
+from retrieval_service.config import EMBEDDING_MODEL
 
 _embeddings = HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL)
 

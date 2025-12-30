@@ -5,3 +5,9 @@ langgraph
 langchain-core
 langchain-groq
 psycopg2-binary
+dspy
+langgraph-checkpoint-postgres
+langchain-community
+langchain-huggingface
+dotenv
+psycopg[binary]

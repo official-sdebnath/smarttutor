@@ -4,10 +4,12 @@ WORKDIR /app
 
 ENV PYTHONPATH=/app
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+COPY shared ./shared
+COPY backend/services/web_search_service ./web_search_service
 
-COPY . .
+WORKDIR /app/web_search_service
+
+RUN pip install --no-cache-dir -r requirements.txt
 
 EXPOSE 8004
 

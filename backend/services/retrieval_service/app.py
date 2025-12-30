@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 
-from .service import search_chunks
+from retrieval_service.service import search_chunks
 from shared.schemas.retrieval import (
     RetrievalRequest,
     RetrievalResponse,

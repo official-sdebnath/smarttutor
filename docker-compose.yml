@@ -1,9 +1,8 @@
-version: "3.9"
-
 services:
   retrieval_service:
     build:
-      context: ./backend/services/retrieval_service
+      context: .
+      dockerfile: backend/services/retrieval_service/Dockerfile
     container_name: smarttutor_retrieval
     ports:
       - "8001:8001"
@@ -13,7 +12,8 @@ services:
 
   qa_service:
     build:
-      context: ./backend/services/qa_service
+      context: .
+      dockerfile: backend/services/qa_service/Dockerfile
     container_name: smarttutor_qa
     ports:
       - "8002:8002"
@@ -25,7 +25,8 @@ services:
 
   ingestion_service:
     build:
-      context: ./backend/services/ingestion_service
+      context: .
+      dockerfile: backend/services/ingestion_service/Dockerfile
     container_name: smarttutor_ingestion
     ports:
       - "8003:8003"
@@ -35,7 +36,8 @@ services:
 
   web_search_service:
     build:
-      context: ./backend/services/web_search_service
+      context: .
+      dockerfile: backend/services/web_search_service/Dockerfile
     container_name: smarttutor_web
     ports:
       - "8004:8004"
@@ -45,7 +47,8 @@ services:
 
   orchestrator_service:
     build:
-      context: ./backend/services/orchestrator_service
+      context: .
+      dockerfile: backend/services/orchestrator_service/Dockerfile
     container_name: smarttutor_orchestrator
     ports:
       - "8006:8006"

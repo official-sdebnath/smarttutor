@@ -8,13 +8,13 @@ from langchain_core.output_parsers import StrOutputParser, PydanticOutputParser
 from langchain_core.messages import HumanMessage, AIMessage
 from langchain_core.runnables import RunnableConfig
 
-from backend.clients.qa_client import ask_question
-from backend.clients.web_search_client import search_web
+from orchestrator_service.clients.qa_client import ask_question
+from orchestrator_service.clients.web_search_client import search_web
 
 from typing import Dict, Any, Optional
-from models.models import EvalResult
+from shared.schemas.orchestrator import EvalResult
 
-from backend.dspy_modules.signatures import EvaluatorModule, RewriteModule
+from orchestrator_service.dspy_modules.signatures import EvaluatorModule, RewriteModule
 import time
 
 # -------------------------

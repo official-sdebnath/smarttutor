@@ -1,9 +1,9 @@
 from typing import Dict, Any, List
 
-from backend.clients.retrieval_client import retrieve_chunks
-from backend.services.qa_service.llm import llm
-from backend.services.qa_service.prompt import qa_prompt
-from backend.services.qa_service.config import RETRIEVAL_K_DEFAULT
+from qa_service.llm import llm
+from qa_service.prompt import qa_prompt
+from qa_service.config import RETRIEVAL_K_DEFAULT
+from qa_service.retrieval_client import retrieve_chunks
 
 
 def build_context(items: List[Dict[str, Any]]) -> str:

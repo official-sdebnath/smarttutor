@@ -4,10 +4,12 @@ WORKDIR /app
 
 ENV PYTHONPATH=/app
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+COPY shared ./shared
+COPY backend/services/ingestion_service ./ingestion_service
 
-COPY . .
+WORKDIR /app/ingestion_service
+
+RUN pip install --no-cache-dir -r requirements.txt
 
 EXPOSE 8003
 

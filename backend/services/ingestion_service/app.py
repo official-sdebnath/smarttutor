@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from shared.schemas.ingestion import IngestRequest, IngestResponse
-from .service import ingest_directory
+from ingestion_service.service import ingest_directory
 
 app = FastAPI(title="SmartTutor Ingestion Service")
 

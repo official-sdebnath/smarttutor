@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from shared.schemas.orchestrator import ChatRequest, ReviewRequest, ChatResponse
-from .service import Orchestrator
-from utils.utils import configure_dspy
+from orchestrator_service.service import Orchestrator
+from orchestrator_service.config import configure_dspy
 
 app = FastAPI(title="SmartTutor Orchestrator Service")
 

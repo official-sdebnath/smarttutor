@@ -1,8 +1,8 @@
 from typing import List, Dict, Any
 from tavily import TavilyClient
-from .llm import groq
-from .prompt import prompt
-from .config import TAVILY_API_KEY
+from web_search_service.llm import groq
+from web_search_service.prompt import prompt
+from web_search_service.config import TAVILY_API_KEY
 from langchain_core.output_parsers import StrOutputParser
 
 

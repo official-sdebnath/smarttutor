@@ -6,8 +6,8 @@ from langchain_community.document_loaders import PyPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_huggingface import HuggingFaceEmbeddings
 
-from .config import EMBEDDING_MODEL
-from .db import get_chunk_collection
+from ingestion_service.config import EMBEDDING_MODEL
+from ingestion_service.db import get_chunk_collection
 
 
 def load_documents(dir_path: str) -> List[Document]:

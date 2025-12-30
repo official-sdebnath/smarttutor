@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from shared.schemas.web_search import WebSearchRequest, WebSearchResponse
-from .service import search_and_synthesize
+from web_search_service.service import search_and_synthesize
 
 app = FastAPI(title="SmartTutor Web Search Service")
 
