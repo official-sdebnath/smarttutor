@@ -1,3 +1,8 @@
+networks:
+  default:
+    external:
+      name: smarttutor_ipv6
+
 services:
   retrieval_service:
     build:
